@@ -15,8 +15,9 @@
 #  [*atboot*]      - 'true',
 #  [*device*]      - "s3fs#${bucket}",
 #  [*fstype*]      - 'fuse',
-#  [*options*]     - "allow_other,uid=${uid},gid=${gid},default_acl=${default_acl},use_cache=/tmp/aws_s3_cache,url=${s3url}",
 #  [*remounts*]    - 'false',
+#  [*cache*]       - '/tmp/aws_s3_cache',
+#  [*allow_other*] - 'true'
 #
 # Actions:
 #
@@ -52,13 +53,18 @@ define s3fs::mount (
   $device      = "s3fs#${bucket}",
   $fstype      = 'fuse',
   $remounts    = 'false',
-  $cache       = '/tmp/aws_s3_cache'
+  $cache       = '/tmp/aws_s3_cache',
+  $allow_other = true
 ) {
 
   Class['s3fs'] -> S3fs::Mount["${name}"]
 
   # Declare this here, otherwise, uid, guid, etc.. are not initialized in the correct order.
-  $options = "allow_other,uid=${uid},gid=${gid},default_acl=${default_acl},use_cache=${cache},url=${s3url}"
+  if $allow_other {
+    $options = "allow_other,uid=${uid},gid=${gid},default_acl=${default_acl},use_cache=${cache},url=${s3url}"
+  } else {
+    $options = "uid=${uid},gid=${gid},default_acl=${default_acl},use_cache=${cache},url=${s3url}"
+  }
 
   case $ensure {
     present, defined, unmounted, mounted: {
@@ -76,8 +82,6 @@ define s3fs::mount (
 
   file { $mount_point:
     ensure  => $ensure_dir,
-    recurse => true,
-    force   => true,
     owner   => $owner,
     group   => $group,
     mode    => $mode,
