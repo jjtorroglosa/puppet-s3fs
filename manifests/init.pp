@@ -51,12 +51,12 @@ class s3fs (
     mode    => '0640',
   }
 
-  Exec['s3fs_tar_gz'] ~> Exec['s3fs_extract'] ~> Exec['s3fs_configure'] ~> Exec['s3fs_make'] ~> Exec['s3fs_install']
+  Exec['s3fs_tar_gz'] ~> Exec['s3fs_extract'] ~> Exec['s3fs_autogen.sh'] ~> Exec['s3fs_configure'] ~> Exec['s3fs_make'] ~> Exec['s3fs_install']
 
   # Distribute s3fs source from within module to control version (could
   # also download from Google directly):
   exec { 's3fs_tar_gz':
-    command   => "/usr/bin/curl -o ${download_dir}/s3fs-${version}.tar.gz ${download_url}/s3fs-${version}.tar.gz",
+    command   => "/usr/bin/curl -L -o ${download_dir}/s3fs-${version}.tar.gz ${download_url}/v${version}",
     logoutput => true,
     timeout   => 300,
     #path      => '/sbin:/bin:/usr/local/bin:/usr/local/sbin',
@@ -67,10 +67,20 @@ class s3fs (
   exec { 's3fs_extract':
     creates   => "${download_dir}/s3fs-${version}",
     cwd         => "${download_dir}",
-    command   => "tar --no-same-owner -xzf ${download_dir}/s3fs-$version.tar.gz",
+    command   => "mkdir -p ${download_dir}/s3fs-${version} ; tar --no-same-owner -xzf ${download_dir}/s3fs-$version.tar.gz --strip-components=1 -C ${download_dir}/s3fs-${version}",
     logoutput => true,
     timeout   => 300,
     path      => '/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/bin:/usr/local/sbin',
+    refreshonly => true,
+  }
+
+  # Generate scripts:
+  exec { 's3fs_autogen.sh':
+    creates     => "${download_dir}/s3fs-${version}/configure",
+    cwd         => "${download_dir}/s3fs-${version}",
+    command     => "${download_dir}/s3fs-${version}/autogen.sh",
+    logoutput   => true,
+    timeout     => 300,
     refreshonly => true,
   }
 
