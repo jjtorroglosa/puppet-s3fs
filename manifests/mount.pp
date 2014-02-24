@@ -17,7 +17,8 @@
 #  [*fstype*]      - 'fuse',
 #  [*remounts*]    - 'false',
 #  [*cache*]       - '/tmp/aws_s3_cache',
-#  [*allow_other*] - 'true'
+#  [*allow_other*] - 'true',
+#  [*netdev*]      - false, Includes the _netdev option in fstab
 #
 # Actions:
 #
@@ -54,17 +55,31 @@ define s3fs::mount (
   $fstype      = 'fuse',
   $remounts    = 'false',
   $cache       = '/tmp/aws_s3_cache',
-  $allow_other = true
+  $allow_other = true,
+  $netdev      = false,
 ) {
 
   Class['s3fs'] -> S3fs::Mount["${name}"]
 
   # Declare this here, otherwise, uid, guid, etc.. are not initialized in the correct order.
-  if $allow_other {
-    $options = "allow_other,uid=${uid},gid=${gid},default_acl=${default_acl},use_cache=${cache},url=${s3url}"
-  } else {
-    $options = "uid=${uid},gid=${gid},default_acl=${default_acl},use_cache=${cache},url=${s3url}"
+
+  $allow_other_str = $allow_other ? {
+    true => "allow_other",
+    false => 'undef'
   }
+  $netdev_str = $netdev ? {
+    true => "_netdev",
+    false => 'undef'
+  }
+
+  $uid_str = "uid=${uid}"
+  $gid_str = "gid=${gid}"
+  $default_acl_str = "default_acl=${default_acl}"
+  $use_cache_str = "use_cache=${use_cache}"
+  $url_str = "url=${s3url}"
+
+  $options_arr = [$allow_other_str, $uid_str, $gid_str, $default_acl_str, $use_cache_str, $url_str, $netdev_str]
+  $options = join(reject($options_arr, 'undef'), ",")
 
   case $ensure {
     present, defined, unmounted, mounted: {
